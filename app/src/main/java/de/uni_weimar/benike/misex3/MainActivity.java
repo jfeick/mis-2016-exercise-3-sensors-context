@@ -8,8 +8,8 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
-import android.os.Handler;
 import android.util.Log;
+import android.view.View;
 import android.widget.SeekBar;
 
 import com.androidplot.util.PlotStatistics;
@@ -36,23 +36,12 @@ public class MainActivity extends Activity
     private SimpleXYSeries accelZHistorySeries = null;
     private SimpleXYSeries accelMHistorySeries = null;
 
-    public static int SAMPLE_MIN_VALUE = 1;
-    public static int SAMPLE_MAX_VALUE = 1000;
-    public static int SAMPLE_STEP = 1;
+    public static int SAMPLE_MIN_VALUE = 0;
+    public static int SAMPLE_MAX_VALUE = 1000000;
+    public static int SAMPLE_STEP = 10000;
 
     int interval = SAMPLE_MIN_VALUE;
-    Handler handler;
-    boolean flag = false;
-    private final Runnable processSensors = new Runnable() {
-        @Override
-        public void run() {
-            // Do work with the sensor values.
 
-            flag = true;
-            // The Runnable is posted to run again here:
-            handler.postDelayed(this, interval);
-        }
-    };
 
     /** Called when the activity is first created. */
     @Override
@@ -87,36 +76,12 @@ public class MainActivity extends Activity
         accelHistoryPlot.getRangeLabelWidget().pack();
 
         // setup checkboxes:
-        final PlotStatistics levelStats = new PlotStatistics(1000, false);
         final PlotStatistics histStats = new PlotStatistics(1000, false);
-
         accelHistoryPlot.addListener(histStats);
-        /*
-        hwAcceleratedCb.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
-                if(b) {
-                    aprLevelsPlot.setLayerType(View.LAYER_TYPE_NONE, null);
-                    accelHistoryPlot.setLayerType(View.LAYER_TYPE_NONE, null);
-                } else {
-                    aprLevelsPlot.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-                    accelHistoryPlot.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-                }
-            }
-        });
-        */
-        /*
-        showFpsCb = (CheckBox) findViewById(R.id.showFpsCb);
-        showFpsCb.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
-                levelStats.setAnnotatePlotEnabled(b);
-                histStats.setAnnotatePlotEnabled(b);
-            }
-        });
-        */
 
-        // get a ref to the BarRenderer so we can make some changes to it:
+        accelHistoryPlot.setLayerType(View.LAYER_TYPE_NONE, null);
+        //accelHistoryPlot.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+        //histStats.setAnnotatePlotEnabled(true);
 
         // register for accelerometer events:
         mSensorManager = (SensorManager) getApplicationContext().getSystemService(Context.SENSOR_SERVICE);
@@ -128,22 +93,23 @@ public class MainActivity extends Activity
 
         // if we can't access the accelerometer sensor then exit:
         if (accelSensor == null) {
-            System.out.println("Failed to attach to accelSensor.");
+            Log.e(TAG, "Failed to attach to accelSensor.");
             cleanup();
         }
 
 
-        handler = new Handler();
+
         SeekBar seekBar = (SeekBar) findViewById(R.id.sampleRateSeekBar);
 
         seekBar.setMax( (SAMPLE_MAX_VALUE - SAMPLE_MIN_VALUE) / SAMPLE_STEP );
         seekBar.setOnSeekBarChangeListener(this);
-        //mSensorManager.registerListener(this, accelSensor, SensorManager.SENSOR_DELAY_UI);
-        mSensorManager.registerListener(this, accelSensor, 1000000);
 
-        Log.d(TAG, "Sensor delay UI: " + SensorManager.SENSOR_DELAY_UI);
-        Log.d(TAG, "Sensor delay fastest: " + SensorManager.SENSOR_DELAY_FASTEST);
-        Log.d(TAG, "Sensor delay normal: " + SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, accelSensor, SensorManager.SENSOR_DELAY_UI);
+
+        //Log.d(TAG, "Sensor delay UI: " + SensorManager.SENSOR_DELAY_UI);
+        //Log.d(TAG, "Sensor delay fastest: " + SensorManager.SENSOR_DELAY_FASTEST);
+        //Log.d(TAG, "Sensor delay normal: " + SensorManager.SENSOR_DELAY_NORMAL);
+        //Log.d(TAG, "Sensor delay game:" + SensorManager.SENSOR_DELAY_GAME);
     }
 
     @Override
@@ -151,24 +117,19 @@ public class MainActivity extends Activity
         super.onResume();
         mSensorManager.registerListener(this, accelSensor,
                 SensorManager.SENSOR_DELAY_NORMAL);
-
-        handler.post(processSensors);
     }
 
     @Override
     protected void onPause() {
-        handler.removeCallbacks(processSensors);
-
         super.onPause();
     }
 
     @Override
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
         int value = SAMPLE_MIN_VALUE + progress * SAMPLE_STEP;
-        Log.d(TAG, "Sample value: " + value + "ms");
-        interval = value;
-        //mSensorManager.unregisterListener(this);
-        //mSensorManager.registerListener(this, accelSensor,  value);
+        Log.d(TAG, "Sample value: " + value + "us");
+        mSensorManager.unregisterListener(this);
+        mSensorManager.registerListener(this, accelSensor,  value);
     }
 
     @Override
@@ -186,12 +147,6 @@ public class MainActivity extends Activity
     // Called whenever a new accelSensor reading is taken.
     @Override
     public synchronized void onSensorChanged(SensorEvent sensorEvent) {
-
-        if (!flag) {
-            return;
-        }
-
-        flag = false;
 
         // update instantaneous data:
         Number[] series1Numbers = {sensorEvent.values[0], sensorEvent.values[1], sensorEvent.values[2]};
@@ -223,7 +178,4 @@ public class MainActivity extends Activity
     public void onAccuracyChanged(Sensor sensor, int i) {
         // Not interested in this event
     }
-
-
-
 }
