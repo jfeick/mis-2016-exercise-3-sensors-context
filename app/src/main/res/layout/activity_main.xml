@@ -1,22 +1,28 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:ap="http://schemas.android.com/apk/res-auto"
     android:layout_height="match_parent"
-    android:layout_width="match_parent">
-
+    android:layout_width="match_parent"
+    android:orientation="vertical">
     <com.androidplot.xy.XYPlot
-        style="@style/sample_activity"
-        android:id="@+id/dynamicXYPlot"
+        android:id="@+id/accelPlot"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
-        androidplot.renderMode="use_background_thread"
-        ap:label="A Simple XY Plot"
-        ap:rangeLabel="range"
-        ap:domainLabel="domain"
-        ap:legendTextSize="15sp"
-        ap:legendIconHeight="15dp"
-        ap:legendIconWidth="15dp"
-        ap:legendHeight="25dp"
-        ap:legendAnchorPosition="right_bottom"/>
+        android:layout_weight="1"
+        android:layout_marginTop="10dp"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"
+        title="Accelerometer History"
+        />
 
+    <SeekBar
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/sampleRateSeekBar"
+        android:layout_weight="1"
+        android:mirrorForRtl="false"
+        android:paddingTop="30dp"
+        android:paddingBottom="30dp"
+        android:layout_marginLeft="20dp"
+        android:layout_marginRight="20dp"
+        android:progress="20" />
 
 </LinearLayout>
