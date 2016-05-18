@@ -14,10 +14,14 @@ public class MainActivity extends AppCompatActivity {
     private SectionsPagerAdapter mSectionsPagerAdapter;
     private ViewPager mViewPager;
 
+    private AccelerometerSensor sensor = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        sensor = new AccelerometerSensor(this);
 
         // Create the adapter that will return a fragment for each of the three
         // primary sections of the activity.
@@ -26,6 +30,10 @@ public class MainActivity extends AppCompatActivity {
         // Set up the ViewPager with the sections adapter.
         mViewPager = (ViewPager) findViewById(R.id.container);
         mViewPager.setAdapter(mSectionsPagerAdapter);
+    }
+
+    public AccelerometerSensor getSensor() {
+        return sensor;
     }
 
     public class SectionsPagerAdapter extends FragmentPagerAdapter {
