@@ -10,6 +10,7 @@ import android.util.Log;
 import com.androidplot.xy.SimpleXYSeries;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Observable;
 import java.util.Observer;
 
@@ -26,11 +27,17 @@ public final class AccelerometerSensor
     private Context mContext = null;
 
     private int interval = 0;
+    private int counter = 0;
+    private boolean windowFull = false;
 
     private SimpleXYSeries accelXHistorySeries = null;
     private SimpleXYSeries accelYHistorySeries = null;
     private SimpleXYSeries accelZHistorySeries = null;
     private SimpleXYSeries accelMHistorySeries = null;
+
+    double re[] = new double[HISTORY_SIZE];
+    double im[] = new double[HISTORY_SIZE];
+    FFT fft = new FFT(HISTORY_SIZE);
 
     public AccelerometerSensor(Context context) {
         mContext = context;
@@ -92,6 +99,22 @@ public final class AccelerometerSensor
         mSensorManager.unregisterListener(this);
     }
 
+    private Double[] fftMagnitude(double[] re, double[] im) {
+        if (re.length != im.length) return null;
+        Double[] fftMag = new Double[re.length];
+        for (int i = 0; i < re.length; i++) {
+            fftMag[i] = Math.pow(re[i], 2) + Math.pow(im[i], 2);
+        }
+        return fftMag;
+    }
+
+    void performFFT() {
+        for(int i = 0; i < accelMHistorySeries.size(); ++i) {
+            re[i] = accelMHistorySeries.getY(i).doubleValue();
+        }
+        fft.fft(re, im);
+        Double mag[] = fftMagnitude(re, im);
+    }
 
     // Called whenever a new accelSensor reading is taken.
     @Override
@@ -102,7 +125,7 @@ public final class AccelerometerSensor
 
 
         // get rid the oldest sample in history:
-        if (accelZHistorySeries.size() > HISTORY_SIZE) {
+        if (accelZHistorySeries.size() > HISTORY_SIZE - 1) {
             accelZHistorySeries.removeFirst();
             accelYHistorySeries.removeFirst();
             accelXHistorySeries.removeFirst();
@@ -123,6 +146,13 @@ public final class AccelerometerSensor
         // redraw the Plots:
         //accelHistoryPlot.redraw();
         // notify observer for new data
+
+        counter = (counter + 1 ) % HISTORY_SIZE;
+        if (counter == 0)
+        {
+            performFFT();
+        }
+
         setChanged();
         notifyObservers();
     }

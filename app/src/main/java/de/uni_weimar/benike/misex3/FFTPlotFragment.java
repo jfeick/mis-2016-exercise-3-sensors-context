@@ -1,4 +1,3 @@
-
 package de.uni_weimar.benike.misex3;
 import android.content.Context;
 import android.graphics.Color;
@@ -22,26 +21,22 @@ import com.androidplot.xy.BoundaryMode;
 import com.androidplot.xy.LineAndPointFormatter;
 import com.androidplot.xy.SimpleXYSeries;
 import com.androidplot.xy.XYPlot;
+import com.androidplot.xy.XYSeries;
 
+import java.util.Arrays;
 import java.util.Observable;
 import java.util.Observer;
 
 /*
-
-public class AccelerometerPlotFragment extends Fragment
+public class FFTPlotFragment extends Fragment
         implements SeekBar.OnSeekBarChangeListener,
-                    Observer {
+        Observer {
 
-    private static final String TAG = AccelerometerPlotFragment.class.getName();
+    private static final String TAG = FFTPlotFragment.class.getName();
+    private XYPlot FFTPlot = null;
+    private SimpleXYSeries FFTSeries = null;
+    private FFT fft = null;
 
-
-    private XYPlot accelHistoryPlot = null;
-
-    private static int SAMPLE_MIN_VALUE = 0;
-    private static int SAMPLE_MAX_VALUE = 1000000;
-    private static int SAMPLE_STEP = 10000;
-
-    private int interval = SAMPLE_MIN_VALUE;
 
 
 
@@ -50,37 +45,40 @@ public class AccelerometerPlotFragment extends Fragment
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         super.onCreateView(inflater, container, savedInstanceState);
         //FragmentActivity faActivity = (FragmentActivity) super.getActivity();
-        View rootView = (LinearLayout) inflater.inflate(R.layout.fragment_accelerometer_plot, container, false);
+        View rootView = (LinearLayout) inflater.inflate(R.layout. fragment_fft_plot, container, false);
 
         // setup the Accelerometer History plot:
-        accelHistoryPlot = (XYPlot) rootView.findViewById(R.id.accelPlot);
+        FFTPlot = (XYPlot) rootView.findViewById(R.id.fftPlot);
 
         //accelHistoryPlot.setRangeBoundaries(-30, 30, BoundaryMode.FIXED);
-        accelHistoryPlot.setDomainBoundaries(0, 30, BoundaryMode.FIXED);
+        FFTPlot.setDomainBoundaries(0, 30, BoundaryMode.FIXED);
         AccelerometerSensor sensor = ((MainActivity) getActivity()).getSensor();
+
+        FFTSeries = new SimpleXYSeries("fft");
+        FFTSeries.useImplicitXVals();
+        fft = new FFT(32);
+
         sensor.addObserver(this);
-        accelHistoryPlot.addSeries(sensor.getXSeries(), new LineAndPointFormatter(Color.rgb(100, 100, 200), null, null, null));
-        accelHistoryPlot.addSeries(sensor.getYSeries(), new LineAndPointFormatter(Color.rgb(100, 200, 100), null, null, null));
-        accelHistoryPlot.addSeries(sensor.getZSeries(), new LineAndPointFormatter(Color.rgb(200, 100, 100), null, null, null));
-        accelHistoryPlot.addSeries(sensor.getMSeries(), new LineAndPointFormatter(Color.rgb(255, 255, 255), null, null, null));
-        accelHistoryPlot.setDomainStepValue(5);
-        accelHistoryPlot.setTicksPerRangeLabel(3);
-        accelHistoryPlot.setDomainLabel("Sample Index");
-        accelHistoryPlot.getDomainLabelWidget().pack();
-        accelHistoryPlot.setRangeLabel("m/s^2");
-        accelHistoryPlot.getRangeLabelWidget().pack();
+
+        FFTPlot.addSeries(FFTSeries, new LineAndPointFormatter(Color.rgb(100, 100, 200), null, null, null));
+        FFTPlot.setTicksPerRangeLabel(3);
+        FFTPlot.setDomainStepValue(5);
+        FFTPlot.setDomainLabel("Sample Index");
+        FFTPlot.getDomainLabelWidget().pack();
+        FFTPlot.setRangeLabel("m/s^2");
+        FFTPlot.getRangeLabelWidget().pack();
 
         // setup checkboxes:
         final PlotStatistics histStats = new PlotStatistics(1000, false);
-        accelHistoryPlot.addListener(histStats);
+        FFTPlot.addListener(histStats);
 
-        accelHistoryPlot.setLayerType(View.LAYER_TYPE_NONE, null);
+        FFTPlot.setLayerType(View.LAYER_TYPE_NONE, null);
         //accelHistoryPlot.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
         //histStats.setAnnotatePlotEnabled(true);
 
-        SeekBar seekBar = (SeekBar) rootView.findViewById(R.id.sampleRateSeekBar);
-        seekBar.setMax( (SAMPLE_MAX_VALUE - SAMPLE_MIN_VALUE) / SAMPLE_STEP );
-        seekBar.setOnSeekBarChangeListener(this);
+        //SeekBar seekBar = (SeekBar) rootView.findViewById(R.id.sampleRateSeekBar);
+        //seekBar.setMax( (SAMPLE_MAX_VALUE - SAMPLE_MIN_VALUE) / SAMPLE_STEP );
+        //seekBar.setOnSeekBarChangeListener(this);
 
         //Log.d(TAG, "Sensor delay UI: " + SensorManager.SENSOR_DELAY_UI);
         //Log.d(TAG, "Sensor delay fastest: " + SensorManager.SENSOR_DELAY_FASTEST);
@@ -90,8 +88,8 @@ public class AccelerometerPlotFragment extends Fragment
         return rootView;
     }
 
-    public static AccelerometerPlotFragment newInstance() {
-        AccelerometerPlotFragment fragment = new AccelerometerPlotFragment();
+    public static FFTPlotFragment newInstance() {
+        FFTPlotFragment fragment = new FFTPlotFragment();
         //Bundle args = new Bundle();
         //fragment.setArguments(args);
         return fragment;
@@ -111,8 +109,8 @@ public class AccelerometerPlotFragment extends Fragment
 
     @Override
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-        int value = SAMPLE_MIN_VALUE + progress * SAMPLE_STEP;
-        Log.d(TAG, "Sample value: " + value + "us");
+        //int value = SAMPLE_MIN_VALUE + progress * SAMPLE_STEP;
+        //Log.d(TAG, "Sample value: " + value + "us");
 
     }
 
@@ -122,9 +120,11 @@ public class AccelerometerPlotFragment extends Fragment
     @Override
     public void onStopTrackingTouch(SeekBar seekBar) {}
 
+
+
     @Override
     public void update(Observable observable, Object data) {
-        accelHistoryPlot.redraw();
+
     }
 
 

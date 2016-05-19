@@ -1,3 +1,5 @@
+package de.uni_weimar.benike.misex3;
+
 /*
  *  Copyright 2006-2007 Columbia University.
  *
