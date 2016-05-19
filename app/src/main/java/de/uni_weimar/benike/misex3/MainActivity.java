@@ -20,6 +20,7 @@ import com.androidplot.xy.LineAndPointFormatter;
 import com.androidplot.xy.SimpleXYSeries;
 import com.androidplot.xy.XYPlot;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 
 public class MainActivity extends Activity
@@ -47,6 +48,9 @@ public class MainActivity extends Activity
     private SimpleXYSeries mAccelerometerZSeries = null;
     private SimpleXYSeries mAccelerometerMSeries = null;
 
+    private ArrayList<Double> mFftAverages = new ArrayList<>();
+    private static final int LEN_AVERAGES = 64;
+
     private SimpleXYSeries mFftSeries = null;
 
     private int mWindowSize = 32;            // number of points to plot in history
@@ -57,8 +61,6 @@ public class MainActivity extends Activity
     private SeekBar mFftWindowSeekBar;
 
     private FFT mFft;
-
-
     private Thread mFftThread;
 
     @Override
@@ -182,7 +184,9 @@ public class MainActivity extends Activity
     @Override
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
         if(seekBar == mSampleRateSeekBar) {
-            int value = SAMPLE_MIN_VALUE + progress * SAMPLE_STEP;
+            Log.d(TAG, "Progress: " + progress);
+            progress = seekBar.getMax() - progress;
+            int value =  SAMPLE_MIN_VALUE + progress * SAMPLE_STEP;
             Log.d(TAG, "Samplesize SeekBar value: " + value);
             ChangeSampleRate(value * 2000);
         }
@@ -271,7 +275,7 @@ public class MainActivity extends Activity
 
                 final Number magnitude[] = new Number[mWindowSize];
                 for(int i = 0; i < mWindowSize; ++i) {
-                    magnitude[i] = Math.sqrt(re[i] * re[i] + im[i] * im[i])
+                    magnitude[i] = Math.sqrt(re[i] * re[i] + im[i] * im[i]);
                     //magnitude[i] = //re[i] * re[i] + im[i] * im[i];
                 }
 
@@ -284,8 +288,15 @@ public class MainActivity extends Activity
                     }
                 });
 
+                Double sum = 0.0;
+                for (Number n : magnitude) sum += (Double) n;
+                Double average = sum / magnitude.length;
+
+                if (mFftAverages.size() > LEN_AVERAGES - 1) {
+                    mFftAverages.remove(0);
+                }
+                mFftAverages.add(average);
             }
             mFftHandler.post(this);
         }
     }
-}
