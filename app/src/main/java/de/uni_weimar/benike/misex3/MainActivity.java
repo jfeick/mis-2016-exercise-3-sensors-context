@@ -1,7 +1,10 @@
 package de.uni_weimar.benike.misex3;
 
 import android.app.Activity;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Color;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -9,6 +12,9 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Process;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.TaskStackBuilder;
 import android.util.Log;
 import android.view.View;
 import android.widget.SeekBar;
@@ -49,7 +55,7 @@ public class MainActivity extends Activity
     private SimpleXYSeries mAccelerometerMSeries = null;
 
     private ArrayList<Double> mFftAverages = new ArrayList<>();
-    private static final int LEN_AVERAGES = 64;
+    private static final int LEN_AVERAGES = 128;
 
     private SimpleXYSeries mFftSeries = null;
 
@@ -62,6 +68,11 @@ public class MainActivity extends Activity
 
     private FFT mFft;
     private Thread mFftThread;
+    private Thread mDetectActivityThread;
+
+    private static final int mNotificationId = 42;
+
+    private NotificationManager mNotificationManager = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,14 +100,17 @@ public class MainActivity extends Activity
         mSensorManager.registerListener(this, mAccelerometerSensor, SensorManager.SENSOR_DELAY_UI);
 
 
-
         // setup the Accelerometer History plot:
         mAccelerometerPlot = (XYPlot) findViewById(R.id.accelerometerPlot);
+        mFftPlot = (XYPlot) findViewById(R.id.fftPlot);
 
         mAccelerometerPlot.setRangeBoundaries(-30, 30, BoundaryMode.FIXED);
         mAccelerometerPlot.setDomainBoundaries(0, mWindowSize, BoundaryMode.FIXED);
 
-        mFftPlot = (XYPlot) findViewById(R.id.fftPlot);
+        mFftPlot.setRangeBoundaries(0, 3000, BoundaryMode.FIXED);
+        mFftPlot.setDomainBoundaries(0, mWindowSize / 2, BoundaryMode.FIXED);
+
+
 
         mAccelerometerXSeries = new SimpleXYSeries("X");
         mAccelerometerXSeries.useImplicitXVals();
@@ -137,7 +151,7 @@ public class MainActivity extends Activity
         //histStats.setAnnotatePlotEnabled(true);
 
         mSampleRateSeekBar = (SeekBar) findViewById(R.id.sampleRateSeekBar);
-        mSampleRateSeekBar.setMax( (SAMPLE_MAX_VALUE - SAMPLE_MIN_VALUE) / SAMPLE_STEP );
+        mSampleRateSeekBar.setMax((SAMPLE_MAX_VALUE - SAMPLE_MIN_VALUE) / SAMPLE_STEP);
         mSampleRateSeekBar.setOnSeekBarChangeListener(this);
 
         //Log.d(TAG, "Sensor delay UI: " + SensorManager.SENSOR_DELAY_UI);
@@ -146,18 +160,40 @@ public class MainActivity extends Activity
         //Log.d(TAG, "Sensor delay game:" + SensorManager.SENSOR_DELAY_GAME);
 
         mFftWindowSeekBar = (SeekBar) findViewById(R.id.fftWindowSeekBar);
-        mFftWindowSeekBar.setMax( (WINDOW_MAX_VALUE - WINDOW_MIN_VALUE) / WINDOW_STEP );
+        mFftWindowSeekBar.setMax((WINDOW_MAX_VALUE - WINDOW_MIN_VALUE) / WINDOW_STEP);
         mFftWindowSeekBar.setOnSeekBarChangeListener(this);
 
+        // Perform FFT calculations in background thread
         mFft = new FFT(mWindowSize);
         Runnable r = new PerformFft();
         mFftThread = new Thread(r);
         mFftThread.start();
+
+        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this)
+                .setSmallIcon(R.drawable.ic_help_outline_black_48dp)
+                .setContentTitle("MIS Ex3 Activity Recognizer")
+                .setContentText("Trying to guess your activity")
+                .setOngoing(true);
+
+        Intent resultIntent = new Intent(this, MainActivity.class);
+
+        TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
+        stackBuilder.addParentStack(MainActivity.class);
+        stackBuilder.addNextIntent(resultIntent);
+        PendingIntent resultPendingIntent = stackBuilder.getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT);
+        notificationBuilder.setContentIntent(resultPendingIntent);
+
+        mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        mNotificationManager.notify(mNotificationId, notificationBuilder.build());
+
+        Runnable detectActivity = new DetectActivity();
+        mDetectActivityThread = new Thread(detectActivity);
+        mDetectActivityThread.start();
     }
 
     private void resetSeries() {
 
-        while(mAccelerometerMSeries.size() > mWindowSize) {
+        while (mAccelerometerMSeries.size() > mWindowSize) {
             mAccelerometerXSeries.removeFirst();
             mAccelerometerYSeries.removeFirst();
             mAccelerometerZSeries.removeFirst();
@@ -183,14 +219,13 @@ public class MainActivity extends Activity
 
     @Override
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-        if(seekBar == mSampleRateSeekBar) {
+        if (seekBar == mSampleRateSeekBar) {
             Log.d(TAG, "Progress: " + progress);
             progress = seekBar.getMax() - progress;
-            int value =  SAMPLE_MIN_VALUE + progress * SAMPLE_STEP;
+            int value = SAMPLE_MIN_VALUE + progress * SAMPLE_STEP;
             Log.d(TAG, "Samplesize SeekBar value: " + value);
             ChangeSampleRate(value * 2000);
-        }
-        else if (seekBar == mFftWindowSeekBar) {
+        } else if (seekBar == mFftWindowSeekBar) {
             int value = (int) Math.pow(2, WINDOW_MIN_VALUE + progress * WINDOW_STEP);
             Log.d(TAG, "Windowsize SeekBar value: " + value);
             mWindowSize = value;
@@ -201,16 +236,18 @@ public class MainActivity extends Activity
     }
 
     @Override
-    public void onStartTrackingTouch(SeekBar seekBar) {}
+    public void onStartTrackingTouch(SeekBar seekBar) {
+    }
 
     @Override
-    public void onStopTrackingTouch(SeekBar seekBar) {}
+    public void onStopTrackingTouch(SeekBar seekBar) {
+    }
 
 
     public void ChangeSampleRate(int us) {
         Log.d(TAG, "Samplerate value: " + us);
         mSensorManager.unregisterListener(this);
-        mSensorManager.registerListener(this, mAccelerometerSensor,  us);
+        mSensorManager.registerListener(this, mAccelerometerSensor, us);
     }
 
     private void cleanup() {
@@ -242,7 +279,7 @@ public class MainActivity extends Activity
         mAccelerometerYSeries.addLast(null, accelYdata);
         mAccelerometerZSeries.addLast(null, accelZdata);
         mAccelerometerMSeries.addLast(null, Math.sqrt(accelXdata * accelXdata
-                + accelYdata * accelYdata + accelZdata * accelZdata)
+                + accelYdata * accelYdata + accelZdata * accelZdata) - 9.81
         );
 
         //Log.d(TAG, "Sample added. Size of m series: " + mAccelerometerMSeries.size());
@@ -268,13 +305,14 @@ public class MainActivity extends Activity
             if (mAccelerometerMSeries.size() == mWindowSize) {
                 double re[] = new double[mWindowSize];
                 double im[] = new double[mWindowSize];
-                for(int i = 0; i < mAccelerometerMSeries.size(); ++i) {
-                    re[i] = (double) mAccelerometerMSeries.getY(i); im[i] = 0.0;
+                for (int i = 0; i < mAccelerometerMSeries.size(); ++i) {
+                    re[i] = (double) mAccelerometerMSeries.getY(i);
+                    im[i] = 0.0;
                 }
                 mFft.fft(re, im);
 
                 final Number magnitude[] = new Number[mWindowSize];
-                for(int i = 0; i < mWindowSize; ++i) {
+                for (int i = 0; i < mWindowSize; ++i) {
                     magnitude[i] = Math.sqrt(re[i] * re[i] + im[i] * im[i]);
                     //magnitude[i] = //re[i] * re[i] + im[i] * im[i];
                 }
@@ -300,3 +338,32 @@ public class MainActivity extends Activity
             mFftHandler.post(this);
         }
     }
+
+    private class DetectActivity implements Runnable {
+
+        private Handler mActivityHandler = new Handler();
+
+        @Override
+        public void run() {
+            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+            if (mFftAverages.size() == LEN_AVERAGES) {
+                // calculate complete average
+                Double sum = 0.0;
+                for (Double d : mFftAverages) sum += d;
+                Double average = sum / LEN_AVERAGES;
+                Log.i(TAG, "Activity fft average: " + average);
+                if (average < 15.0) {
+                    Log.d(TAG, "Activity detected: sitting/standing");
+                }
+                else if (average > 15.0 && average < 20.0) {
+                    Log.d(TAG, "Activity detected: walking");
+                }
+                else if (average > 20) {
+                    Log.d(TAG, "Activity detected: running");
+                }
+                mFftAverages.clear();
+            }
+            mActivityHandler.postDelayed(this, 5000);
+        }
+    }
+}
