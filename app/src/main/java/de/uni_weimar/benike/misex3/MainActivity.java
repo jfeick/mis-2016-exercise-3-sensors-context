@@ -18,6 +18,7 @@ import android.support.v4.app.TaskStackBuilder;
 import android.util.Log;
 import android.view.View;
 import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.androidplot.util.PlotStatistics;
@@ -25,6 +26,7 @@ import com.androidplot.xy.BoundaryMode;
 import com.androidplot.xy.LineAndPointFormatter;
 import com.androidplot.xy.SimpleXYSeries;
 import com.androidplot.xy.XYPlot;
+import com.androidplot.xy.XYStepMode;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,7 +44,7 @@ public class MainActivity extends Activity
     private static int SAMPLE_MAX_VALUE = 250;
     private static int SAMPLE_STEP = 10;
 
-    private static int WINDOW_MIN_VALUE = 2;
+    private static int WINDOW_MIN_VALUE = 5;
     private static int WINDOW_MAX_VALUE = 10;
     private static int WINDOW_STEP = 1;
 
@@ -78,6 +80,7 @@ public class MainActivity extends Activity
     private static final double ACTIVITY_THRESHOLD_WALKING = 14.5;
     private static final double ACTIVITY_THRESHOLD_RUNNING = 19.7;
 
+    private TextView mWindowSizeTextView;
 
     public enum ActivityState { UNSURE, STANDING, WALKING, RUNNING };
 
@@ -111,11 +114,12 @@ public class MainActivity extends Activity
         mAccelerometerPlot = (XYPlot) findViewById(R.id.accelerometerPlot);
         mFftPlot = (XYPlot) findViewById(R.id.fftPlot);
 
-        mAccelerometerPlot.setRangeBoundaries(-30, 30, BoundaryMode.FIXED);
+        mAccelerometerPlot.setRangeBoundaries(-25, 25, BoundaryMode.FIXED);
         mAccelerometerPlot.setDomainBoundaries(0, mWindowSize - 1, BoundaryMode.FIXED);
 
-        mFftPlot.setRangeBoundaries(0, 1000, BoundaryMode.FIXED);
-        mFftPlot.setDomainBoundaries(0, mWindowSize / 2, BoundaryMode.FIXED);
+        mFftPlot.setRangeBoundaries(0, 250, BoundaryMode.FIXED);
+        mFftPlot.setDomainBoundaries(0, mWindowSize / 2, BoundaryMode.AUTO);
+        mFftPlot.setDomainStep(XYStepMode.SUBDIVIDE, 10);
 
 
 
@@ -132,7 +136,7 @@ public class MainActivity extends Activity
         mFftSeries.useImplicitXVals();
 
         mFftPlot.addSeries(mFftSeries,
-                new LineAndPointFormatter(Color.rgb(255, 255, 255), null, null, null));
+                new LineAndPointFormatter(Color.rgb(0, 0, 0), null, null, null));
 
         mAccelerometerPlot.addSeries(mAccelerometerXSeries,
                 new LineAndPointFormatter(Color.rgb(100, 100, 200), null, null, null));
@@ -141,7 +145,7 @@ public class MainActivity extends Activity
         mAccelerometerPlot.addSeries(mAccelerometerZSeries,
                 new LineAndPointFormatter(Color.rgb(200, 100, 100), null, null, null));
         mAccelerometerPlot.addSeries(mAccelerometerMSeries,
-                new LineAndPointFormatter(Color.rgb(255, 255, 255), null, null, null));
+                new LineAndPointFormatter(Color.rgb(0, 0, 0), null, null, null));
         mAccelerometerPlot.setDomainStepValue(5);
         mAccelerometerPlot.setTicksPerRangeLabel(3);
         mAccelerometerPlot.setDomainLabel("Sample Index");
@@ -154,8 +158,12 @@ public class MainActivity extends Activity
 
         // perform hardware accelerated rendering of the plot
         mAccelerometerPlot.setLayerType(View.LAYER_TYPE_NONE, null);
-        //mAccelerometerPlot.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+        mFftPlot.setLayerType(View.LAYER_TYPE_NONE, null);
+        //mAccelerometerPlot.setLayerType(View.LAYER_TYPE_SOTWARE, null);
         //histStats.setAnnotatePlotEnabled(true);
+
+        mFftPlot.setTicksPerRangeLabel(5);
+        mFftPlot.setTicksPerDomainLabel(1);
 
         mSampleRateSeekBar = (SeekBar) findViewById(R.id.sampleRateSeekBar);
         mSampleRateSeekBar.setMax((SAMPLE_MAX_VALUE - SAMPLE_MIN_VALUE) / SAMPLE_STEP);
@@ -169,6 +177,8 @@ public class MainActivity extends Activity
         mFftWindowSeekBar = (SeekBar) findViewById(R.id.fftWindowSeekBar);
         mFftWindowSeekBar.setMax((WINDOW_MAX_VALUE - WINDOW_MIN_VALUE) / WINDOW_STEP);
         mFftWindowSeekBar.setOnSeekBarChangeListener(this);
+
+        mWindowSizeTextView = (TextView) findViewById(R.id.windowSizeTextView);
 
         // Perform FFT calculations in background thread
         mFft = new FFT(mWindowSize);
@@ -235,6 +245,7 @@ public class MainActivity extends Activity
         } else if (seekBar == mFftWindowSeekBar) {
             int value = (int) Math.pow(2, WINDOW_MIN_VALUE + progress * WINDOW_STEP);
             Log.d(TAG, "Windowsize SeekBar value: " + value);
+
             mWindowSize = value;
             mAccelerometerPlot.setDomainBoundaries(0, mWindowSize - 1, BoundaryMode.FIXED);
             mFft = new FFT(mWindowSize);
@@ -260,6 +271,13 @@ public class MainActivity extends Activity
     private void cleanup() {
         // unregister with the orientation sensor before exiting:
         mSensorManager.unregisterListener(this);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        cleanup();
+        mNotificationManager.cancel(mNotificationId);
     }
 
     // Called whenever a new accelSensor reading is taken.
