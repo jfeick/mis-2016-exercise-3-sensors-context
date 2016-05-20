@@ -34,6 +34,8 @@ import java.util.Arrays;
 /* The following code snippets have been used as a reference:
     http://androidplot.com/docs/a-dynamic-xy-plot/
     https://developer.android.com/guide/topics/sensors/sensors_motion.html#sensors-motion-accel
+    icons from Google under CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/#):
+    https://design.google.com/icons/
  */
 
 
@@ -246,7 +248,7 @@ public class MainActivity extends Activity
 
             mWindowSize = value;
             mAccelerometerPlot.setDomainBoundaries(0, mWindowSize - 1, BoundaryMode.FIXED);
-            
+
             mFft = new FFT(mWindowSize);
             resetSeries();
         }
