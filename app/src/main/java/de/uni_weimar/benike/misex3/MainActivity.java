@@ -31,6 +31,12 @@ import com.androidplot.xy.XYStepMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+/* The following code snippets have been used as a reference:
+    http://androidplot.com/docs/a-dynamic-xy-plot/
+    https://developer.android.com/guide/topics/sensors/sensors_motion.html#sensors-motion-accel
+ */
+
+
 public class MainActivity extends Activity
         implements SeekBar.OnSeekBarChangeListener, SensorEventListener
 
@@ -120,8 +126,7 @@ public class MainActivity extends Activity
         mFftPlot.setRangeBoundaries(0, 250, BoundaryMode.FIXED);
         mFftPlot.setDomainBoundaries(0, mWindowSize / 2, BoundaryMode.AUTO);
         mFftPlot.setDomainStep(XYStepMode.SUBDIVIDE, 10);
-
-
+        //mFftPlot.setRangeStep(XYStepMode.INCREMENT_BY_VAL, 50);
 
         mAccelerometerXSeries = new SimpleXYSeries("X");
         mAccelerometerXSeries.useImplicitXVals();
@@ -156,11 +161,9 @@ public class MainActivity extends Activity
         final PlotStatistics histStats = new PlotStatistics(1000, false);
         mAccelerometerPlot.addListener(histStats);
 
-        // perform hardware accelerated rendering of the plot
+        // perform hardware accelerated rendering of the plots
         mAccelerometerPlot.setLayerType(View.LAYER_TYPE_NONE, null);
         mFftPlot.setLayerType(View.LAYER_TYPE_NONE, null);
-        //mAccelerometerPlot.setLayerType(View.LAYER_TYPE_SOTWARE, null);
-        //histStats.setAnnotatePlotEnabled(true);
 
         mFftPlot.setTicksPerRangeLabel(5);
         mFftPlot.setTicksPerDomainLabel(1);
@@ -168,11 +171,6 @@ public class MainActivity extends Activity
         mSampleRateSeekBar = (SeekBar) findViewById(R.id.sampleRateSeekBar);
         mSampleRateSeekBar.setMax((SAMPLE_MAX_VALUE - SAMPLE_MIN_VALUE) / SAMPLE_STEP);
         mSampleRateSeekBar.setOnSeekBarChangeListener(this);
-
-        //Log.d(TAG, "Sensor delay UI: " + SensorManager.SENSOR_DELAY_UI);
-        //Log.d(TAG, "Sensor delay fastest: " + SensorManager.SENSOR_DELAY_FASTEST);
-        //Log.d(TAG, "Sensor delay normal: " + SensorManager.SENSOR_DELAY_NORMAL);
-        //Log.d(TAG, "Sensor delay game:" + SensorManager.SENSOR_DELAY_GAME);
 
         mFftWindowSeekBar = (SeekBar) findViewById(R.id.fftWindowSeekBar);
         mFftWindowSeekBar.setMax((WINDOW_MAX_VALUE - WINDOW_MIN_VALUE) / WINDOW_STEP);
@@ -248,6 +246,7 @@ public class MainActivity extends Activity
 
             mWindowSize = value;
             mAccelerometerPlot.setDomainBoundaries(0, mWindowSize - 1, BoundaryMode.FIXED);
+            
             mFft = new FFT(mWindowSize);
             resetSeries();
         }
@@ -304,14 +303,12 @@ public class MainActivity extends Activity
         mAccelerometerYSeries.addLast(null, accelYdata);
         mAccelerometerZSeries.addLast(null, accelZdata);
         mAccelerometerMSeries.addLast(null, Math.sqrt(accelXdata * accelXdata
-                + accelYdata * accelYdata + accelZdata * accelZdata) - 9.81
+                + accelYdata * accelYdata + accelZdata * accelZdata) /* - 9.81 */
         );
 
         //Log.d(TAG, "Sample added. Size of m series: " + mAccelerometerMSeries.size());
 
-        // redraw the Plots:
-        //accelHistoryPlot.redraw();
-        // notify observer for new data
+        // redraw the Plots
         mAccelerometerPlot.redraw();
     }
 
