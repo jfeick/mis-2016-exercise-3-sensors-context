@@ -73,6 +73,13 @@ public class MainActivity extends Activity
     private static final int mNotificationId = 42;
 
     private NotificationManager mNotificationManager = null;
+    private NotificationCompat.Builder mNotificationBuilder = null;
+
+    private static final double ACTIVITY_THRESHOLD_WALKING = 14.5;
+    private static final double ACTIVITY_THRESHOLD_RUNNING = 19.7;
+
+
+    public enum ActivityState { UNSURE, STANDING, WALKING, RUNNING };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,9 +112,9 @@ public class MainActivity extends Activity
         mFftPlot = (XYPlot) findViewById(R.id.fftPlot);
 
         mAccelerometerPlot.setRangeBoundaries(-30, 30, BoundaryMode.FIXED);
-        mAccelerometerPlot.setDomainBoundaries(0, mWindowSize, BoundaryMode.FIXED);
+        mAccelerometerPlot.setDomainBoundaries(0, mWindowSize - 1, BoundaryMode.FIXED);
 
-        mFftPlot.setRangeBoundaries(0, 3000, BoundaryMode.FIXED);
+        mFftPlot.setRangeBoundaries(0, 1000, BoundaryMode.FIXED);
         mFftPlot.setDomainBoundaries(0, mWindowSize / 2, BoundaryMode.FIXED);
 
 
@@ -169,8 +176,8 @@ public class MainActivity extends Activity
         mFftThread = new Thread(r);
         mFftThread.start();
 
-        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this)
-                .setSmallIcon(R.drawable.ic_help_outline_black_48dp)
+        mNotificationBuilder = new NotificationCompat.Builder(this)
+                .setSmallIcon(R.drawable.ic_help_outline_black_24dp)
                 .setContentTitle("MIS Ex3 Activity Recognizer")
                 .setContentText("Trying to guess your activity")
                 .setOngoing(true);
@@ -181,10 +188,10 @@ public class MainActivity extends Activity
         stackBuilder.addParentStack(MainActivity.class);
         stackBuilder.addNextIntent(resultIntent);
         PendingIntent resultPendingIntent = stackBuilder.getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT);
-        notificationBuilder.setContentIntent(resultPendingIntent);
+        mNotificationBuilder.setContentIntent(resultPendingIntent);
 
         mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        mNotificationManager.notify(mNotificationId, notificationBuilder.build());
+        mNotificationManager.notify(mNotificationId, mNotificationBuilder.build());
 
         Runnable detectActivity = new DetectActivity();
         mDetectActivityThread = new Thread(detectActivity);
@@ -295,6 +302,32 @@ public class MainActivity extends Activity
         // Not interested in this event
     }
 
+    private void updateNotification(ActivityState activityState) {
+
+
+        if (activityState == ActivityState.STANDING) {
+            mNotificationBuilder
+                    .setSmallIcon(R.drawable.ic_accessibility_black_24dp)
+                    .setContentText("You are standing/sitting");
+        } else if (activityState == ActivityState.WALKING) {
+            mNotificationBuilder
+                    .setSmallIcon(R.drawable.ic_directions_walk_black_24dp)
+                    .setContentText("You are walking");
+        } else if (activityState == ActivityState.RUNNING) {
+            mNotificationBuilder
+                    .setSmallIcon(R.drawable.ic_accessibility_black_24dp)
+                    .setContentText("You are running");
+        } else { // unsure
+            mNotificationBuilder
+                    .setSmallIcon(R.drawable.ic_help_outline_black_24dp)
+                    .setContentText("Could not determine your activity...");
+        }
+
+        mNotificationManager.notify(
+                mNotificationId,
+                mNotificationBuilder.build());
+    }
+
     private class PerformFft implements Runnable {
 
         private Handler mFftHandler = new Handler();
@@ -311,8 +344,8 @@ public class MainActivity extends Activity
                 }
                 mFft.fft(re, im);
 
-                final Number magnitude[] = new Number[mWindowSize];
-                for (int i = 0; i < mWindowSize; ++i) {
+                final Number magnitude[] = new Number[mWindowSize / 2];
+                for (int i = 0; i < mWindowSize / 2; ++i) {
                     magnitude[i] = Math.sqrt(re[i] * re[i] + im[i] * im[i]);
                     //magnitude[i] = //re[i] * re[i] + im[i] * im[i];
                 }
@@ -351,15 +384,24 @@ public class MainActivity extends Activity
                 Double sum = 0.0;
                 for (Double d : mFftAverages) sum += d;
                 Double average = sum / LEN_AVERAGES;
-                Log.i(TAG, "Activity fft average: " + average);
-                if (average < 15.0) {
+                // Log.i(TAG, "Activity fft freq average: " + average);
+                // we used adb wifi debugging to watch the logcat to determine thresholds for
+                // different walking speeds (a bit problematic is the shift with different samplerates)
+                if (average < ACTIVITY_THRESHOLD_WALKING) {
                     Log.d(TAG, "Activity detected: sitting/standing");
+                    updateNotification(ActivityState.STANDING);
                 }
-                else if (average > 15.0 && average < 20.0) {
+                else if (average > ACTIVITY_THRESHOLD_WALKING
+                        && average < ACTIVITY_THRESHOLD_RUNNING) {
                     Log.d(TAG, "Activity detected: walking");
+                    updateNotification(ActivityState.WALKING);
                 }
-                else if (average > 20) {
+                else if (average > ACTIVITY_THRESHOLD_RUNNING) {
                     Log.d(TAG, "Activity detected: running");
+                    updateNotification(ActivityState.RUNNING);
+                }
+                else {
+                    updateNotification(ActivityState.UNSURE);
                 }
                 mFftAverages.clear();
             }
